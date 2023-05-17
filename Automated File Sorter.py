@@ -1,3 +1,5 @@
+# Following https://www.youtube.com/watch?v=gs0FNQR0njI
+
 import os, shutil
 
 path = r'C:/Users/dovil/Desktop/testinis/'
