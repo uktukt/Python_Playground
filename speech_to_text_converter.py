@@ -44,10 +44,10 @@ convert_to_wav(input_name, wav_name)
 # Create a speech recognition object
 r = sr.Recognizer()
 
-def transcribe_large_audio(path):
+def transcribe_large_audio(wav_name):
     '''Split audio into chunks and apply speech recognition'''
     # Open audio file with pydub
-    sound = AudioSegment.from_wav(path)
+    sound = AudioSegment.from_wav(wav_name)
     # Split audio where silence is > 1500ms
     chunks = split_on_silence(sound, min_silence_len=700, silence_thresh=sound.dBFS-5, keep_silence=100)
     
