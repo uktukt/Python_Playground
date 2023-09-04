@@ -12,9 +12,6 @@ import datetime
 import ssl
 from neo4j import GraphDatabase
 
-client_id = 'client_id'
-client_secret = 'client_secret'
-
 CLIENT_ID = client_id
 CLIENT_SECRET = client_secret
 
