@@ -38,7 +38,7 @@ def get_token():
         return None
 
 def search_popular_songs_by_year(access_token, year):
-    top_tracks = []
+    tracks_with_audio_features = []
 
     headers = {
         'Authorization': 'Bearer ' + access_token
@@ -59,8 +59,9 @@ def search_popular_songs_by_year(access_token, year):
         data = response.json()
         tracks = data.get('tracks', {}).get('items', [])
 
-        # Extract relevant data from the tracks and add them to the top_tracks list
+        # Extract relevant data from the tracks and add them to the tracks_with_audio_features list
         for track in tracks:
+            # Get the track ID for audio features
             track_id = track['id']
 
             # Retrieve audio features for the track
@@ -73,6 +74,7 @@ def search_popular_songs_by_year(access_token, year):
                 track_data = {
                     'Track Name': track['name'],
                     'Artist': ', '.join([artist['name'] for artist in track['artists']]),
+                    'Duration_ms': track['duration_ms'],
                     'Popularity': track['popularity'],
                     'Release Date': track['album']['release_date'],
                     'Year': year,
@@ -80,14 +82,14 @@ def search_popular_songs_by_year(access_token, year):
                     'Energy': audio_features_data['energy'],
                     'Tempo': audio_features_data['tempo']
                 }
-                top_tracks.append(track_data)
+                tracks_with_audio_features.append(track_data)
             else:
-                print(f'Audio features not available for track: {track["name"]}')
+                print(f"Audio features not available for track: {track['name']}")
 
     else:
-        print(f'Error: {response.status_code} - {response.text}')
+        print(f"Error: {response.status_code} - {response.text}")
 
-    return top_tracks
+    return tracks_with_audio_features
 
 def parse_release_date(date_str):
     # List of possible date formats Spotify might return
@@ -104,15 +106,16 @@ def parse_release_date(date_str):
 
 # loading to mysql and saving as csv file
 
-def save_to_mysql_and_csv(top_tracks):
+def save_to_mysql_and_csv(tracks_with_audio_features):
     connection = pymysql.connect(host='localhost', user='root', password='pass', database='spotify')
     cursor = connection.cursor()
 
     create_table_query = """
-    CREATE TABLE IF NOT EXISTS top_tracks (
+    CREATE TABLE IF NOT EXISTS tracks_with_audio_features (
         id INT AUTO_INCREMENT PRIMARY KEY,
         track_name VARCHAR(255),
         artist VARCHAR(255),
+        duration_ms INT,
         popularity INT,
         release_date DATE,
         year INT,
@@ -125,11 +128,11 @@ def save_to_mysql_and_csv(top_tracks):
     cursor.execute(create_table_query)
 
     insert_query = """
-    INSERT INTO top_tracks (track_name, artist, popularity, release_date, year, danceability, energy, tempo)
-    VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+    INSERT INTO tracks_with_audio_features (track_name, artist, duration_ms, popularity, release_date, year, danceability, energy, tempo)
+    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
     """
 
-    for track in top_tracks:
+    for track in tracks_with_audio_features:
         release_date = parse_release_date(track['Release Date'])
         if release_date is not None:
             release_date_str = release_date.strftime('%Y-%m-%d')
@@ -139,6 +142,7 @@ def save_to_mysql_and_csv(top_tracks):
         cursor.execute(insert_query, (
             track['Track Name'],
             track['Artist'],
+            track['Duration_ms'],
             track['Popularity'],
             release_date_str,
             track['Year'],
@@ -151,8 +155,8 @@ def save_to_mysql_and_csv(top_tracks):
     connection.close()
 
     # Save the data to a CSV file
-    df = pd.DataFrame(top_tracks)
-    df.to_csv('raw_top_tracks.csv', index=False)
+    df = pd.DataFrame(tracks_with_audio_features)
+    df.to_csv('raw_tracks_with_audio_features.csv', index=False)
 
 # loading to mongoDB
 
@@ -242,22 +246,22 @@ if __name__ == '__main__':
     access_token = get_token()
 
     if access_token:
-        top_tracks = []
+        tracks_with_audio_features = []
 
-        years_to_collect = range(2000, 2023)  # Change the year as needed
+        years_to_collect = range(2000, 2023)  # Change the end year as needed
 
         for year in years_to_collect:
             year_tracks = search_popular_songs_by_year(access_token, year)
-            top_tracks.extend(year_tracks)
+            tracks_with_audio_features.extend(year_tracks)
 
         # save data to a file or process it further as needed
 
-        save_to_mysql_and_csv(top_tracks)
-        save_to_mongodb(top_tracks)
-        with driver.session() as session:
-            load_data_to_neo4j(session, top_tracks)
-            create_same_artist_relationships(session)
-        driver.close()
+        # save_to_mysql_and_csv(tracks_with_audio_features)
+        # save_to_mongodb(tracks_with_audio_features)
+        # with driver.session() as session:
+        #     load_data_to_neo4j(session, tracks_with_audio_features)
+        #     create_same_artist_relationships(session)
+        # driver.close()
 
     else:
         print('Access token retrieval failed.')
